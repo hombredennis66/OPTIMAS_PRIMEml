@@ -75,6 +75,3 @@ Please avoid rewriting published git history (no force-pushes or rebasing/amendi
 
 ---
 
-If you'd like, I can:
-- Tailor this README to reflect the exact project structure and scripts by inspecting package.json and the repo tree.
-- Add badges, examples, or a quickstart that runs a specific script or demo from this repo.

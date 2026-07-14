@@ -14,7 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      model_versions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          mae: number | null
+          metadata: Json | null
+          model_type: string
+          r2_score: number | null
+          rmse: number | null
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mae?: number | null
+          metadata?: Json | null
+          model_type: string
+          r2_score?: number | null
+          rmse?: number | null
+          version: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mae?: number | null
+          metadata?: Json | null
+          model_type?: string
+          r2_score?: number | null
+          rmse?: number | null
+          version?: string
+        }
+        Relationships: []
+      }
+      predictions: {
+        Row: {
+          created_at: string
+          feature_contributions: Json | null
+          id: string
+          model_version_id: string | null
+          predicted_spending: number
+          survey_response_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_contributions?: Json | null
+          id?: string
+          model_version_id?: string | null
+          predicted_spending: number
+          survey_response_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_contributions?: Json | null
+          id?: string
+          model_version_id?: string | null
+          predicted_spending?: number
+          survey_response_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "predictions_model_version_id_fkey"
+            columns: ["model_version_id"]
+            isOneToOne: false
+            referencedRelation: "model_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "predictions_survey_response_id_fkey"
+            columns: ["survey_response_id"]
+            isOneToOne: false
+            referencedRelation: "survey_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      survey_responses: {
+        Row: {
+          accommodation_type: string
+          club_events: number
+          created_at: string
+          distance_from_campus: number
+          gaming_hours: number
+          id: string
+          meal_habits: string
+          mobile_data_usage: number
+          monthly_allowance: number
+          outings_per_month: number
+          printing_frequency: number
+          transport_type: string
+          user_id: string
+          year_of_study: number
+        }
+        Insert: {
+          accommodation_type: string
+          club_events: number
+          created_at?: string
+          distance_from_campus: number
+          gaming_hours: number
+          id?: string
+          meal_habits: string
+          mobile_data_usage: number
+          monthly_allowance: number
+          outings_per_month: number
+          printing_frequency: number
+          transport_type: string
+          user_id: string
+          year_of_study: number
+        }
+        Update: {
+          accommodation_type?: string
+          club_events?: number
+          created_at?: string
+          distance_from_campus?: number
+          gaming_hours?: number
+          id?: string
+          meal_habits?: string
+          mobile_data_usage?: number
+          monthly_allowance?: number
+          outings_per_month?: number
+          printing_frequency?: number
+          transport_type?: string
+          user_id?: string
+          year_of_study?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

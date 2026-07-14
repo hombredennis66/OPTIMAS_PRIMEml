@@ -14,7 +14,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Shield } from "lucide-react";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 function NotFoundComponent() {
   return (
@@ -129,6 +130,7 @@ function RootComponent() {
                 <>
                   <Button asChild variant="ghost" size="sm"><Link to="/dashboard">Dashboard</Link></Button>
                   <Button asChild variant="ghost" size="sm"><Link to="/survey">New survey</Link></Button>
+                  <AdminLink />
                   <Button size="sm" variant="outline" onClick={handleSignOut}>Sign out</Button>
                 </>
               ) : (
@@ -141,5 +143,15 @@ function RootComponent() {
         <Toaster richColors position="top-right" />
       </div>
     </QueryClientProvider>
+  );
+}
+
+function AdminLink() {
+  const { data: isAdmin } = useIsAdmin();
+  if (!isAdmin) return null;
+  return (
+    <Button asChild variant="ghost" size="sm">
+      <Link to="/admin"><Shield className="mr-1 h-3.5 w-3.5" />Admin</Link>
+    </Button>
   );
 }

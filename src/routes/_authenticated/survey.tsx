@@ -2,15 +2,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { surveySchema, surveyDefaults, type SurveyFormValues, accommodationTypes, transportTypes, mealHabits } from "@/lib/survey-schema";
-import { predictSpending } from "@/lib/prediction";
+import { predictSpending, variantFromVersion } from "@/lib/prediction";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/survey")({
@@ -30,15 +31,38 @@ const LABELS: Record<string, string> = {
 };
 const mealLabel = (m: string) => (m === "home" ? "Home-cooked" : LABELS[m] ?? m);
 
+type ModelRow = { id: string; version: string; metadata: { description?: string } | null };
+
 function SurveyPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [models, setModels] = useState<ModelRow[]>([]);
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    supabase.from("model_versions").select("id, version, metadata").eq("is_active", true).order("version").then(({ data }) => {
+      const rows = (data ?? []) as ModelRow[];
+      setModels(rows);
+      if (rows.length && selectedModels.size === 0) setSelectedModels(new Set([rows[0].id]));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveySchema),
     defaultValues: surveyDefaults,
   });
 
+  const toggleModel = (id: string) => {
+    setSelectedModels(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   const onSubmit = async (values: SurveyFormValues) => {
+    if (selectedModels.size === 0) return toast.error("Select at least one model");
     setSubmitting(true);
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
@@ -52,26 +76,23 @@ function SurveyPage() {
 
     if (sErr || !survey) { setSubmitting(false); return toast.error(sErr?.message ?? "Failed to save survey"); }
 
-    const { predicted, contributions } = predictSpending(values);
-
-    const { data: mv } = await supabase
-      .from("model_versions")
-      .select("id")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
-
-    const { error: pErr } = await supabase.from("predictions").insert({
-      user_id: userId,
-      survey_response_id: survey.id,
-      model_version_id: mv?.id ?? null,
-      predicted_spending: predicted,
-      feature_contributions: contributions,
+    const chosen = models.filter(m => selectedModels.has(m.id));
+    const rows = chosen.map(m => {
+      const { predicted, contributions } = predictSpending(values, variantFromVersion(m.version));
+      return {
+        user_id: userId,
+        survey_response_id: survey.id,
+        model_version_id: m.id,
+        predicted_spending: predicted,
+        feature_contributions: contributions,
+      };
     });
+
+    const { error: pErr } = await supabase.from("predictions").insert(rows);
 
     setSubmitting(false);
     if (pErr) return toast.error(pErr.message);
-    toast.success("Prediction generated!");
+    toast.success(chosen.length > 1 ? `${chosen.length} predictions generated!` : "Prediction generated!");
     navigate({ to: "/dashboard" });
   };
 
@@ -115,6 +136,26 @@ function SurveyPage() {
           <NumberField label="Mobile data (GB / month)" error={err.mobile_data_usage?.message} step="0.5" {...reg("mobile_data_usage")} />
           <NumberField label="Year of study" error={err.year_of_study?.message} {...reg("year_of_study")} />
           <NumberField label="Printing pages / week" error={err.printing_frequency?.message} {...reg("printing_frequency")} />
+
+          <div className="md:col-span-2 pt-2">
+            <Label className="text-sm">Run prediction with model(s)</Label>
+            <p className="text-xs text-muted-foreground mb-2">Pick one or more to compare side by side on your dashboard.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {models.map(m => (
+                <label key={m.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-3 hover:bg-accent">
+                  <Checkbox
+                    checked={selectedModels.has(m.id)}
+                    onCheckedChange={() => toggleModel(m.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm">{m.version}</div>
+                    {m.metadata?.description && <div className="text-xs text-muted-foreground line-clamp-2">{m.metadata.description}</div>}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="md:col-span-2 flex justify-end pt-2">
             <Button type="submit" size="lg" disabled={submitting}>

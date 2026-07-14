@@ -1,3 +1,8 @@
+# Environment (NEVER commit .env with real credentials)
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -7,9 +12,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies & Build
 node_modules
 dist
 dist-ssr
+build
 .output
 .vinxi
 .tanstack/**
@@ -24,9 +31,17 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage/
+playwright-report/
+test-results/

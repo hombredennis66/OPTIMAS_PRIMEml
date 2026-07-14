@@ -72,7 +72,6 @@ Please avoid rewriting published git history (no force-pushes or rebasing/amendi
 
 ## License
 
-If you have a preferred license, add a `LICENSE` file in the repo. Otherwise, add a license section here.
 
 ---
 

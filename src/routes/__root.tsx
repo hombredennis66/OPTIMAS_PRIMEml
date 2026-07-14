@@ -27,7 +27,9 @@ function NotFoundComponent() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6">
-          <Button asChild><Link to="/">Go home</Link></Button>
+          <Button asChild>
+            <Link to="/">Go home</Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -36,7 +38,9 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
-  useEffect(() => { reportLovableError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
+  useEffect(() => {
+    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+  }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
@@ -45,8 +49,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           Something went wrong. You can retry or head back home.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <Button onClick={() => { router.invalidate(); reset(); }}>Try again</Button>
-          <Button variant="outline" asChild><a href="/">Go home</a></Button>
+          <Button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+          >
+            Try again
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/">Go home</a>
+          </Button>
         </div>
       </div>
     </div>
@@ -59,9 +72,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "SpendSmart — Student Spending Prediction Platform" },
-      { name: "description", content: "Predict your semester spending with machine learning. Track patterns, get insights, and manage your student budget smarter." },
+      {
+        name: "description",
+        content:
+          "Predict your semester spending with machine learning. Track patterns, get insights, and manage your student budget smarter.",
+      },
       { property: "og:title", content: "SpendSmart — Student Spending Prediction Platform" },
-      { property: "og:description", content: "Predict your semester spending with machine learning and track your budget patterns." },
+      {
+        property: "og:description",
+        content:
+          "Predict your semester spending with machine learning and track your budget patterns.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -70,7 +91,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -82,7 +106,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />
@@ -128,18 +154,28 @@ function RootComponent() {
             <nav className="flex items-center gap-2">
               {isAuthed ? (
                 <>
-                  <Button asChild variant="ghost" size="sm"><Link to="/dashboard">Dashboard</Link></Button>
-                  <Button asChild variant="ghost" size="sm"><Link to="/survey">New survey</Link></Button>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/dashboard">Dashboard</Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/survey">New survey</Link>
+                  </Button>
                   <AdminLink />
-                  <Button size="sm" variant="outline" onClick={handleSignOut}>Sign out</Button>
+                  <Button size="sm" variant="outline" onClick={handleSignOut}>
+                    Sign out
+                  </Button>
                 </>
               ) : (
-                <Button asChild size="sm"><Link to="/auth">Sign in</Link></Button>
+                <Button asChild size="sm">
+                  <Link to="/auth">Sign in</Link>
+                </Button>
               )}
             </nav>
           </div>
         </header>
-        <main className="flex-1"><Outlet /></main>
+        <main className="flex-1">
+          <Outlet />
+        </main>
         <Toaster richColors position="top-right" />
       </div>
     </QueryClientProvider>
@@ -151,7 +187,10 @@ function AdminLink() {
   if (!isAdmin) return null;
   return (
     <Button asChild variant="ghost" size="sm">
-      <Link to="/admin"><Shield className="mr-1 h-3.5 w-3.5" />Admin</Link>
+      <Link to="/admin">
+        <Shield className="mr-1 h-3.5 w-3.5" />
+        Admin
+      </Link>
     </Button>
   );
 }

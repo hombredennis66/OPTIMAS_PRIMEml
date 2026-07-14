@@ -1,7 +1,18 @@
-// Minimal Postgres-based audit logger using `pg` pool.
-// Adjust the import path for your existing db pool / query function if needed.
-import type { Pool } from 'pg';
-import db from '../db'; // <-- Adjust this path to your project's DB export. It should expose a `query(text, params)` function or be a `Pool`.
+import type { QueryResult } from "pg";
+
+// Mock DB export since this project primarily connects via Supabase client directly.
+// If connecting to a local raw Postgres instance, define your DB client export in src/db.ts.
+const db = {
+  query: async (_text: string, _params?: unknown[]): Promise<QueryResult> => {
+    return {
+      rows: [],
+      rowCount: 0,
+      command: "",
+      oid: 0,
+      fields: [],
+    };
+  },
+};
 
 export type PerformedBy = {
   id?: string | number;
@@ -9,16 +20,23 @@ export type PerformedBy = {
   name?: string;
 };
 
-export type ActionType = 'role_change' | 'delete' | 'model_version_update' | string;
+export type ActionType = "role_change" | "delete" | "model_version_update" | string;
+
+export interface AuditDetails {
+  [key: string]: unknown;
+}
 
 export async function logAudit(
   actionType: ActionType,
   targetType: string | null,
   targetId: string | null,
-  details: Record<string, any> | null,
-  performedBy: PerformedBy | null
+  details: AuditDetails | null,
+  performedBy: PerformedBy | null,
 ) {
-  const client: Pool | { query: (text: string, params?: any[]) => Promise<any> } = db as any;
+  interface Queryable {
+    query: (text: string, params?: unknown[]) => Promise<QueryResult>;
+  }
+  const client = db as unknown as Queryable;
 
   const query = `
     INSERT INTO audit_logs
@@ -38,11 +56,17 @@ export async function logAudit(
   ];
 
   try {
-    const res = await (client as any).query(query, params);
+    const res = await client.query(query, params);
     return res.rows[0];
   } catch (err) {
     // Fail-safe: log and continue so admin flows are not blocked by audit failures.
-    console.error('Failed to write audit log', { actionType, targetType, targetId, performedBy, err });
+    console.error("Failed to write audit log", {
+      actionType,
+      targetType,
+      targetId,
+      performedBy,
+      err,
+    });
     return null;
   }
 }

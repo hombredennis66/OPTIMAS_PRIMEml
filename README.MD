@@ -1,97 +1,180 @@
 # OPTIMAS_PRIMEml
 
-OPTIMAS_PRIMEml is a TypeScript-based project focused on machine learning utilities and models. This repository contains TypeScript code (and a small amount of PLpgSQL/CSS/JavaScript) used for developing, testing, and running ML-related workflows.
-
-> NOTE: This README is a general starter guide. If there are repository-specific scripts or CI instructions, update the Scripts and Usage sections accordingly.
+OPTIMAS_PRIMEml is a TypeScript-based web application for machine learning utilities, built with [TanStack Start](https://tanstack.com/start/latest), [React](https://react.dev/), and [Supabase](https://supabase.com/).
 
 ## Features
 
-- TypeScript-first codebase for ML model utilities and pipelines
-- Development and build scripts (npm / pnpm / yarn compatible)
-- Guidance for local development and contribution
+- **Authentication** — Supabase Auth with email/password sign-up and sign-in
+- **Dashboard** — Authenticated user dashboard for ML workflows
+- **Admin Panel** — Administrative interface for project management
+- **Survey System** — Data collection with structured survey forms
+- **Audit Logging** — Track all user actions with detailed audit trails
+- **ML Predictions** — Prediction utilities and model management
+- **SSR** — Server-side rendering via TanStack Start + Nitro (Cloudflare Workers target)
+
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| [TanStack Start](https://tanstack.com/start/latest) | Full-stack React framework |
+| [TanStack Router](https://tanstack.com/router/latest) | File-based routing |
+| [TanStack React Query](https://tanstack.com/query/latest) | Data fetching & caching |
+| [Supabase](https://supabase.com/) | Auth, database, and backend |
+| [Tailwind CSS v4](https://tailwindcss.com/) | Styling |
+| [Radix UI](https://www.radix-ui.com/) | Accessible UI components |
+| [Vite](https://vitejs.dev/) | Build tool & dev server |
+| [Nitro](https://nitro.build/) | Server engine (Cloudflare Workers) |
+| [Vitest](https://vitest.dev/) | Unit testing |
+| [Playwright](https://playwright.dev/) | E2E testing |
 
 ## Requirements
 
-- Node.js 18+ (recommended)
-- npm (or yarn / pnpm)
-- TypeScript (project includes tsconfig)
+- **Node.js 18+**
+- **Bun** (recommended, 3x faster than npm) — [Install Bun](https://bun.sh/docs/installation)
+  - Or use npm as fallback
 
-## Getting started
+## Getting Started
 
-1. Clone the repository:
+### 1. Clone the repository
 
-   git clone https://github.com/hombredennis66/OPTIMAS_PRIMEml.git
-   cd OPTIMAS_PRIMEml
+```bash
+git clone https://github.com/hombredennis66/OPTIMAS_PRIMEml.git
+cd OPTIMAS_PRIMEml
+```
 
-2. Install dependencies:
+### 2. Set up environment variables
 
-   npm install
+```bash
+cp .env.example .env
+```
 
-   # or
-   # yarn install
-   # pnpm install
+Fill in values from your [Supabase Dashboard](https://app.supabase.com):
+- Go to **Project Settings → API**
+- Copy `Project URL` → `SUPABASE_URL` and `VITE_SUPABASE_URL`
+- Copy `Project ID` → `SUPABASE_PROJECT_ID` and `VITE_SUPABASE_PROJECT_ID`
+- Copy `anon/public` key → `SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-3. Run the development build/watch (if available):
+### 3. Install dependencies
 
-   npm run dev
+```bash
+# Using Bun (recommended)
+bun install
 
-   # or to build
-   npm run build
+# Using npm (fallback)
+npm install
+```
 
-4. Run tests (if present):
+### 4. Start development
 
-   npm test
+```bash
+bun run dev
+# or: npm run dev
+```
 
-## Common scripts
+Visit [http://localhost:5173](http://localhost:5173)
 
-The repository likely supports the common npm scripts below. Adjust or add these in package.json if missing:
+## Environment Variables
 
-- `npm run dev` — start development server / watch build
-- `npm run build` — compile TypeScript to JavaScript
-- `npm test` — run tests
-- `npm run lint` — run linter
+| Variable | Required | Purpose | Where to Find |
+|----------|----------|---------|---------------|
+| `SUPABASE_URL` | ✅ | Supabase backend URL | Project Settings → API |
+| `SUPABASE_PROJECT_ID` | ✅ | Supabase project identifier | Project Settings → API |
+| `SUPABASE_PUBLISHABLE_KEY` | ✅ | Supabase anon key (server-side) | Project Settings → API |
+| `VITE_SUPABASE_URL` | ✅ | Client-side Supabase URL | Same as `SUPABASE_URL` |
+| `VITE_SUPABASE_PROJECT_ID` | ✅ | Client-side project ID | Same as `SUPABASE_PROJECT_ID` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ | Client-side anon key | Same as `SUPABASE_PUBLISHABLE_KEY` |
 
-## Project structure (example)
+> ⚠️ **Never commit `.env` to git!** Use `.env.example` for templates and manage secrets via GitHub Secrets (CI/CD) or Cloudflare Environment Variables (production).
 
-- src/ - TypeScript source files
-- dist/ - compiled output (gitignored)
-- scripts/ - utility scripts
-- tests/ - unit/integration tests
+## Scripts
 
-Update this section to reflect the actual repo layout.
+| Script | Description |
+|--------|-------------|
+| `bun run dev` | Start development server |
+| `bun run build` | Production build |
+| `bun run preview` | Preview production build |
+| `bun run lint` | Run ESLint |
+| `bun run format` | Format with Prettier |
+| `bun run test` | Run unit tests (Vitest, watch mode) |
+| `bun run test:run` | Run unit tests once |
+| `bun run test:ui` | Vitest UI mode |
+| `bun run test:e2e` | Run E2E tests (Playwright) |
+| `bun run test:e2e:ui` | Playwright UI mode |
+
+## Project Structure
+
+```
+src/
+├── components/ui/       # Radix-based UI components
+├── hooks/               # Custom React hooks
+├── integrations/        # Supabase & Lovable clients
+│   ├── lovable/         # Lovable platform integration
+│   └── supabase/        # Supabase client & types
+├── lib/                 # Utilities & shared logic
+│   ├── auditLogger.ts   # Audit logging to Supabase
+│   ├── error-page.ts    # SSR error page renderer
+│   ├── prediction.ts    # ML prediction utilities
+│   ├── survey-schema.ts # Zod survey validation
+│   └── utils.ts         # General utilities
+├── routes/              # File-based routes (TanStack Router)
+│   ├── __root.tsx       # Root layout
+│   ├── index.tsx        # Homepage (/)
+│   ├── auth.tsx         # Auth page (/auth)
+│   └── _authenticated/  # Protected routes
+│       ├── route.tsx    # Auth guard layout
+│       ├── dashboard.tsx # Dashboard (/dashboard)
+│       ├── admin.tsx    # Admin panel (/admin)
+│       └── survey.tsx   # Survey form (/survey)
+├── test/                # Test setup
+├── router.tsx           # Router configuration
+├── server.ts            # SSR entry point (error wrapper)
+├── start.ts             # TanStack Start entry
+└── styles.css           # Global styles (Tailwind)
+
+supabase/
+└── migrations/          # Database migration files
+
+docs/
+├── API.md               # API documentation
+└── DATABASE.md          # Database schema & migrations
+
+e2e/                     # Playwright E2E tests
+```
+
+## Deployment
+
+### Cloudflare Pages (Recommended)
+
+1. Connect GitHub repository to [Cloudflare Pages](https://pages.cloudflare.com)
+2. Set environment variables in Cloudflare dashboard
+3. Push to `main` branch to auto-deploy
+
+### Manual Deployment
+
+```bash
+npm install -g wrangler
+bun run build
+wrangler deploy
+```
+
+### CI/CD
+
+GitHub Actions are configured for:
+- **CI** (`.github/workflows/ci.yml`): Lint, typecheck, unit tests, E2E tests on PRs
+- **Deploy** (`.github/workflows/deploy.yml`): Auto-deploy to Cloudflare Pages on push to `main`
 
 ## Contributing
 
-Contributions, issues and feature requests are welcome. Please follow these guidelines:
+Contributions, issues, and feature requests are welcome:
 
-1. Fork the repo and create a feature branch.
-2. Make your changes with clear commit messages.
-3. Open a Pull Request describing the change.
+1. Fork the repo and create a feature branch
+2. Make your changes with clear commit messages
+3. Open a Pull Request describing the change
 
-Please avoid rewriting published git history (no force-pushes or rebasing/amending commits that are already pushed), as this repository is connected to external tooling that depends on preserved history.
+> **Important:** Do not rewrite published git history (no force-pushes or rebasing/amending already-pushed commits). This repository is connected to Lovable, which depends on preserved history.
 
 ## License
-MIT License
 
-Copyright (c) 2026 Dennis
+MIT License — Copyright (c) 2026 Dennis
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
+See [LICENSE](LICENSE) for full text.

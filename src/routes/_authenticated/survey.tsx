@@ -137,6 +137,26 @@ function SurveyPage() {
           <NumberField label="Year of study" error={err.year_of_study?.message} {...reg("year_of_study")} />
           <NumberField label="Printing pages / week" error={err.printing_frequency?.message} {...reg("printing_frequency")} />
 
+          <div className="md:col-span-2 pt-2">
+            <Label className="text-sm">Run prediction with model(s)</Label>
+            <p className="text-xs text-muted-foreground mb-2">Pick one or more to compare side by side on your dashboard.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {models.map(m => (
+                <label key={m.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-3 hover:bg-accent">
+                  <Checkbox
+                    checked={selectedModels.has(m.id)}
+                    onCheckedChange={() => toggleModel(m.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm">{m.version}</div>
+                    {m.metadata?.description && <div className="text-xs text-muted-foreground line-clamp-2">{m.metadata.description}</div>}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="md:col-span-2 flex justify-end pt-2">
             <Button type="submit" size="lg" disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -145,3 +145,13 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
+function AdminLink() {
+  const { data: isAdmin } = useIsAdmin();
+  if (!isAdmin) return null;
+  return (
+    <Button asChild variant="ghost" size="sm">
+      <Link to="/admin"><Shield className="mr-1 h-3.5 w-3.5" />Admin</Link>
+    </Button>
+  );
+}

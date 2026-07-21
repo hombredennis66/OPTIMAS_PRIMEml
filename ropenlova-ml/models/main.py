@@ -12,10 +12,6 @@ app = FastAPI(title="Ropenlova ML Service")
 
 app.add_middleware(
     CORSMiddleware,
-    # In production, replace "*" with your actual frontend origin(s), e.g.
-    # ["https://ropenlova.onrender.com"]. Since this service is only ever
-    # called server-to-server from your TanStack Start app (not the browser),
-    # you can lock this down tightly or even drop CORS handling entirely.
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,6 +49,9 @@ class PredictionOutput(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     predicted_monthly_spending: float
+    low_estimate: float
+    high_estimate: float
+    confidence_note: str
     model_alpha: float
 
 
@@ -68,6 +67,7 @@ def predict(data: PredictionInput):
     model = bundle["model"]
     scaler = bundle["scaler"]
     feature_columns = bundle["feature_columns"]
+    residual_std = bundle.get("residual_std")
 
     row = {
         "monthly_allowance": data.monthly_allowance,
@@ -79,9 +79,28 @@ def predict(data: PredictionInput):
     }
     X = np.array([[row[c] for c in feature_columns]])
     X_scaled = scaler.transform(X)
-    prediction = model.predict(X_scaled)[0]
+    prediction = float(model.predict(X_scaled)[0])
+
+    # ~80% interval using out-of-fold residual std (1.28 * std under a
+    # normal-error assumption). This is a rough range, not a formal
+    # prediction interval -- honest framing given the small dataset.
+    if residual_std:
+        margin = 1.28 * residual_std
+        low = round(max(0, prediction - margin), 2)
+        high = round(prediction + margin, 2)
+        note = (
+            "This is a rough estimate based on a small training dataset "
+            "(under 100 responses). Treat it as a ballpark range, not a "
+            "precise figure."
+        )
+    else:
+        low = high = round(prediction, 2)
+        note = "No residual data available -- range could not be computed."
 
     return PredictionOutput(
-        predicted_monthly_spending=round(float(prediction), 2),
+        predicted_monthly_spending=round(prediction, 2),
+        low_estimate=low,
+        high_estimate=high,
+        confidence_note=note,
         model_alpha=bundle["alpha"],
     )

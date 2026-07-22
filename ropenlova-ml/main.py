@@ -1,12 +1,12 @@
 import pickle
 from pathlib import Path
+from typing import Literal
 
-import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-MODEL_PATH = Path(__file__).parent / "models" / "spending_model.pkl"
+MODEL_PATH = Path(__file__).parent / "models" / "spending_models.pkl"
 
 app = FastAPI(title="Ropenlova ML Service")
 
@@ -17,87 +17,122 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_model_bundle = None
+_bundle = None
+
+NUMERIC_FEATURES = [
+    "monthly_allowance",
+    "distance_from_campus",
+    "outings_per_month",
+    "gaming_hours",
+    "club_events",
+    "mobile_data_usage",
+    "year_of_study",
+    "printing_frequency",
+]
+
+CATEGORICAL_FEATURES = {
+    "accommodation_type": ["hostel", "pg", "rented", "home"],
+    "transport_type": ["walk", "bicycle", "public", "own_vehicle"],
+    "meal_habits": ["mess", "home", "cafe", "mixed"],
+}
+
+LABELS = {
+    "monthly_allowance": "Monthly allowance",
+    "distance_from_campus": "Distance from campus",
+    "outings_per_month": "Outings",
+    "gaming_hours": "Gaming hours",
+    "club_events": "Club events",
+    "mobile_data_usage": "Mobile data",
+    "year_of_study": "Year of study",
+    "printing_frequency": "Printing",
+}
+
+CATEGORY_LABELS = {
+    "accommodation_type": "Accommodation",
+    "transport_type": "Transport",
+    "meal_habits": "Meal habits",
+}
 
 
-def get_model_bundle():
-    global _model_bundle
-    if _model_bundle is None:
+def get_bundle():
+    global _bundle
+    if _bundle is None:
         if not MODEL_PATH.exists():
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Model not trained yet. Run `python models/train.py` "
-                    "before starting the server."
-                ),
+                detail="Models not trained yet. Run `python models/train.py` first.",
             )
         with open(MODEL_PATH, "rb") as f:
-            _model_bundle = pickle.load(f)
-    return _model_bundle
+            _bundle = pickle.load(f)
+    return _bundle
 
 
-class PredictionInput(BaseModel):
-    monthly_allowance: float = Field(..., ge=0, description="KES per month")
+class SurveyInput(BaseModel):
+    monthly_allowance: float = Field(..., ge=0)
+    distance_from_campus: float = Field(..., ge=0)
+    accommodation_type: Literal["hostel", "pg", "rented", "home"]
+    transport_type: Literal["walk", "bicycle", "public", "own_vehicle"]
+    meal_habits: Literal["mess", "home", "cafe", "mixed"]
+    outings_per_month: int = Field(..., ge=0)
+    gaming_hours: float = Field(..., ge=0)
+    club_events: int = Field(..., ge=0)
+    mobile_data_usage: float = Field(..., ge=0)
     year_of_study: int = Field(..., ge=1, le=6)
-    distance_from_campus_km: float = Field(..., ge=0)
-    num_dependents: int = Field(..., ge=0)
-    has_part_time_job: bool
-    meal_plan: bool
+    printing_frequency: int = Field(..., ge=0)
+
+
+class Contribution(BaseModel):
+    feature: str
+    label: str
+    value: float
 
 
 class PredictionOutput(BaseModel):
-    model_config = {"protected_namespaces": ()}
-
-    predicted_monthly_spending: float
-    low_estimate: float
-    high_estimate: float
-    confidence_note: str
-    model_alpha: float
+    predicted: float
+    contributions: list[Contribution]
 
 
 @app.get("/health")
 def health():
-    model_exists = MODEL_PATH.exists()
-    return {"status": "ok", "model_trained": model_exists}
+    return {"status": "ok", "models_trained": MODEL_PATH.exists()}
 
 
-@app.post("/predict", response_model=PredictionOutput)
-def predict(data: PredictionInput):
-    bundle = get_model_bundle()
-    model = bundle["model"]
-    scaler = bundle["scaler"]
-    feature_columns = bundle["feature_columns"]
-    residual_std = bundle.get("residual_std")
+@app.post("/predict/{variant}", response_model=PredictionOutput)
+def predict(variant: Literal["baseline", "lifestyle", "conservative"], data: SurveyInput):
+    bundle = get_bundle()
+    if variant not in bundle:
+        raise HTTPException(status_code=404, detail=f"Unknown variant: {variant}")
 
-    row = {
-        "monthly_allowance": data.monthly_allowance,
-        "year_of_study": data.year_of_study,
-        "distance_from_campus_km": data.distance_from_campus_km,
-        "num_dependents": data.num_dependents,
-        "has_part_time_job": int(data.has_part_time_job),
-        "meal_plan": int(data.meal_plan),
-    }
-    X = np.array([[row[c] for c in feature_columns]])
-    X_scaled = scaler.transform(X)
-    prediction = float(model.predict(X_scaled)[0])
+    variant_bundle = bundle[variant]
+    model = variant_bundle["model"]
+    feature_columns = variant_bundle["feature_columns"]
+    coefs = dict(zip(feature_columns, model.coef_))
 
-    if residual_std:
-        margin = 1.28 * residual_std
-        low = round(max(0, prediction - margin), 2)
-        high = round(prediction + margin, 2)
-        note = (
-            "This is a rough estimate based on a small training dataset "
-            "(under 100 responses). Treat it as a ballpark range, not a "
-            "precise figure."
+    input_dict = data.model_dump()
+
+    contributions: list[Contribution] = [
+        Contribution(feature="intercept", label="Baseline", value=round(variant_bundle["intercept"], 2))
+    ]
+
+    for feat in NUMERIC_FEATURES:
+        value = coefs[feat] * input_dict[feat]
+        contributions.append(
+            Contribution(feature=feat, label=LABELS[feat], value=round(value, 2))
         )
-    else:
-        low = high = round(prediction, 2)
-        note = "No residual data available -- range could not be computed."
 
-    return PredictionOutput(
-        predicted_monthly_spending=round(prediction, 2),
-        low_estimate=low,
-        high_estimate=high,
-        confidence_note=note,
-        model_alpha=bundle["alpha"],
-    )
+    for col, categories in CATEGORICAL_FEATURES.items():
+        baseline, *others = categories
+        selected = input_dict[col]
+        colname = f"{col}__{selected}" if selected != baseline else None
+        value = coefs[colname] if colname else 0.0
+        contributions.append(
+            Contribution(
+                feature=col,
+                label=f"{CATEGORY_LABELS[col]} ({selected})",
+                value=round(value, 2),
+            )
+        )
+
+    predicted = max(0, round(sum(c.value for c in contributions)))
+
+    return PredictionOutput(predicted=predicted, contributions=contributions)

@@ -12,7 +12,7 @@ import {
   transportTypes,
   mealHabits,
 } from "@/lib/survey-schema";
-import { predictSpending, variantFromVersion } from "@/lib/prediction";
+import { variantFromVersion } from "@/lib/prediction";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -125,17 +125,28 @@ function SurveyPage() {
     }
 
     const chosen = models.filter((m) => selectedModels.has(m.id));
-    const rows = chosen.map((m) => {
-      const { predicted, contributions } = predictSpending(values, variantFromVersion(m.version));
-      return {
-        user_id: userId,
-        survey_response_id: survey.id,
-        model_version_id: m.id,
-        predicted_spending: predicted,
-        feature_contributions: contributions,
-      };
-    });
-
+    const rows = await Promise.all(
+      chosen.map(async (m) => {
+        const variant = variantFromVersion(m.version);
+        const baseUrl = import.meta.env.VITE_ML_SERVICE_URL || "http://localhost:8002";
+        const response = await fetch(`${baseUrl}/predict/${variant}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        if (!response.ok) {
+          throw new Error(`ML service error for variant ${variant}: ${response.status}`);
+        }
+        const { predicted, contributions } = await response.json();
+        return {
+          user_id: userId,
+          survey_response_id: survey.id,
+          model_version_id: m.id,
+          predicted_spending: predicted,
+          feature_contributions: contributions,
+        };
+      })
+    );
     const { error: pErr } = await supabase.from("predictions").insert(rows);
 
     setSubmitting(false);

@@ -1,87 +1,118 @@
-# Ropenlova ML Service
+# Ropenlova ML Service (v2 — matches real SurveyInput schema)
 
-FastAPI service that predicts student monthly spending using Ridge Regression.
-Replaces the in-app TypeScript prediction logic in OPTIMAS_PRIMEml.
+FastAPI service replacing the hardcoded `VARIANTS` formula in
+`src/lib/prediction.ts` with real, trained Ridge Regression models —
+one per variant (baseline/lifestyle/conservative).
 
-## Local setup
+## Current status: bootstrapped on synthetic data
+
+There's no real `confirmed_actual_spending` data yet, so these models are
+trained on synthetic data generated directly from your **existing**
+hardcoded TypeScript formula (`models/generate_synthetic_data.py` mirrors
+`VARIANTS` from `prediction.ts` exactly). This means:
+
+- Predictions from this service currently match the old TS formula almost
+  exactly (R² = 1.0000 on synthetic data, by construction)
+- It's a safe drop-in replacement architecturally — same 11-field input,
+  same 3 variants, same contribution shape — without changing behavior yet
+- Once real data accumulates, retrain on that instead (see below) and the
+  predictions will start reflecting real student spending patterns
+
+## Setup
 
 ```bash
 python -m venv venv
 source venv/Scripts/activate    # Git Bash on Windows
-# or: venv\Scripts\activate.bat  on cmd
-
 pip install -r requirements.txt
 ```
 
-## Train the model
-
-Replace `data/survey_responses.csv` with your real data (100+ responses
-recommended — the included file has only 30 sample rows for pipeline testing).
-The CSV must have these columns:
-
-- `monthly_allowance`
-- `year_of_study`
-- `distance_from_campus_km`
-- `num_dependents`
-- `has_part_time_job` (0 or 1)
-- `meal_plan` (0 or 1)
-- `actual_monthly_spending` (the target)
-
-Then run:
+## Train
 
 ```bash
+python models/generate_synthetic_data.py   # only needed once, or to regenerate
 python models/train.py
 ```
 
-This prints cross-validated R² / MAE and saves `models/spending_model.pkl`.
-Re-run this any time you have new data — it overwrites the existing model.
-
-## Run the server
+## Run
 
 ```bash
-uvicorn main:app --reload --port 8001
+uvicorn main:app --reload --port 8002
 ```
 
-- `GET /health` — confirms the service is up and whether a model is trained
-- `POST /predict` — returns a spending prediction
-- `GET /docs` — interactive Swagger UI (FastAPI generates this automatically)
+- `GET /health`
+- `POST /predict/{variant}` where variant is `baseline`, `lifestyle`, or `conservative`
+- `GET /docs` — Swagger UI for manual testing
 
-## Calling this from the TanStack Start app
+Example request body (matches `SurveyInput` in `prediction.ts` exactly):
+```json
+{
+  "monthly_allowance": 10000,
+  "distance_from_campus": 5.0,
+  "accommodation_type": "hostel",
+  "transport_type": "public",
+  "meal_habits": "mess",
+  "outings_per_month": 3,
+  "gaming_hours": 5,
+  "club_events": 1,
+  "mobile_data_usage": 8.0,
+  "year_of_study": 2,
+  "printing_frequency": 4
+}
+```
 
-Call it from a **server-only** route/function in OPTIMAS_PRIMEml (never from
-client-side code, so the ML service URL and any future auth aren't exposed to
-the browser):
+Response shape matches `predictSpending()`'s return type:
+```json
+{
+  "predicted": 6077,
+  "contributions": [
+    { "feature": "intercept", "label": "Baseline", "value": 850.09 },
+    { "feature": "monthly_allowance", "label": "Monthly allowance", "value": 3199.99 },
+    ...
+  ]
+}
+```
+
+## Switching to real data (once you have it)
+
+1. Export rows from Supabase where `confirmed_actual_spending` is set (not
+   null) — these are the real labeled examples.
+2. Replace the data source in `models/train.py`:
+   - Change `TARGET_COLUMN = "predicted_spending"` to
+     `TARGET_COLUMN = "confirmed_actual_spending"`
+   - Point `train_variant()` at your real CSV/export instead of
+     `data/synthetic_{variant}.csv`
+3. Re-tune `alpha` properly via cross-validation (see the old `diagnose.py`
+   pattern from the earlier version of this service) — real data will be
+   noisy, unlike the synthetic data, so `alpha=0.01` will no longer be
+   appropriate.
+4. If you don't have enough real data yet to train 3 separate variants
+   reliably, consider training 1 consolidated model until volume grows.
+
+No changes needed to `main.py` or the API contract — the frontend integration
+stays the same regardless of which data trained the models underneath.
+
+## Calling this from OPTIMAS_PRIMEml
+
+Call from a server-only route in the TanStack Start app:
 
 ```ts
-const response = await fetch(`${process.env.ML_SERVICE_URL}/predict`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    monthly_allowance: 10000,
-    year_of_study: 2,
-    distance_from_campus_km: 6.0,
-    num_dependents: 0,
-    has_part_time_job: false,
-    meal_plan: true,
-  }),
-});
-const prediction = await response.json();
+const response = await fetch(
+  `${process.env.ML_SERVICE_URL}/predict/${variant}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(surveyInput),
+  }
+);
+const { predicted, contributions } = await response.json();
 ```
+
+This can replace the `predictSpending()` call in `survey.tsx` directly,
+since the return shape (`predicted` + `contributions`) matches what the
+dashboard already expects to store in the `predictions` table.
 
 ## Deploying (free tier)
 
-Deploy to Render, same as the `openlova` service:
-
-1. New Web Service → connect this repo
-2. Build command: `pip install -r requirements.txt`
-3. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Free tier spins down after inactivity — first request after idle will be
-   slow (~30s cold start). Fine for low-traffic / non-profit use.
-
-## Notes
-
-- The current sample dataset (30 rows) is for testing the pipeline only.
-  Metrics are not meaningful until you train on 100+ real responses.
-- `alpha=0.715` is carried over from earlier experimentation on a similar
-  dataset — re-tune it once you have real data (try a small grid search
-  over `alpha` values and compare cross-validated R²).
+Same as before — Render free tier, same pattern as `openlova`:
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
